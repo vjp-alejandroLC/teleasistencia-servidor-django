@@ -7,6 +7,8 @@ from django.contrib.auth.models import AbstractUser
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
+from utilidad.logging import info, error, blue
+
 # Create your models here.
 
 
@@ -60,6 +62,24 @@ class Imagen_User(models.Model):
    user = models.OneToOneField(User, on_delete=models.CASCADE)
    imagen = models.ImageField(upload_to='imagen_usuario', null=True, blank=True, default="")
 
+# Creamos la clase que almacena la relación entre el usuario y la base de datos a la que pertenece
+class Database(models.Model):
+    nameDescritive = models.CharField(max_length=200)
+    engine = models.CharField(max_length=200)
+    name = models.CharField(max_length=200)
+    user = models.CharField(max_length=100, blank=True, null=True)
+    password = models.CharField(max_length=200, blank=True, null=True)
+    host = models.CharField(max_length=200, blank=True, null=True)
+    port = models.IntegerField(blank=True, null=True)
+    def __str__(self):
+        return self.nameDescritive+": "+self.name+" - "+self.engine
+
+class Database_User(models.Model):
+   user = models.OneToOneField(User, on_delete=models.CASCADE)
+   database = models.ForeignKey(Database, on_delete=models.CASCADE)
+
+   def __str__(self):
+        return self.database.nameDescritive+": "+self.user.username+" - "+self.database.name
 
 class Tipo_Agenda(models.Model):
     nombre = models.CharField(max_length=200)
@@ -163,6 +183,7 @@ class Relacion_Paciente_Persona(models.Model):
     observaciones = models.CharField(max_length=4000, blank=True)
     prioridad = models.IntegerField( blank=True)
     es_conviviente= models.BooleanField(default=False)
+    tiempo_domicilio = models.IntegerField(default=1)
     def __str__(self):
         if self.id_paciente and self.id_paciente.id_persona:
             return "Paciente: "+self.id_paciente.id_persona.nombre+" - Contacto: "+self.nombre+" "+self.apellidos
@@ -290,13 +311,13 @@ class Alarma_Programada(models.Model):
             alarma_disparada.save()
             # Y borrar la programada
             self.delete()
-            print("\033[33m[ALARMA DISPARADA]: %s\033[0m" % (self))
+            blue("TeleasistenciaApp", f"Alarma Disparada: {self}")
         except Exception as e:
-            print(f"\033[33mHubo un error al disparar la alarma: {e}\033[0m")
+            error("TeleasistenciaApp", f"Hubo un error al disparar la alarma: {e}")
 
 class Persona_Contacto_En_Alarma(models.Model):
     id_alarma = models.ForeignKey(Alarma, null=True, on_delete=models.SET_NULL)
-    id_persona_contacto = models.ForeignKey(Persona, null=True, on_delete=models.SET_NULL)
+    id_persona_contacto = models.ForeignKey(Relacion_Paciente_Persona, null=True, on_delete=models.SET_NULL)
     fecha_registro = models.DateTimeField(null=False, default=now)
     def __str__(self):
         return self.id_alarma.id_tipo_alarma.nombre+" - "+self.id_alarma.estado_alarma+" - "+str(self.id_alarma.fecha_registro)+" "+self.id_persona_contacto.nombre+" - "+str(self.fecha_registro)
@@ -367,5 +388,3 @@ class Desarrollador_Tecnologia(models.Model):
     id_tecnologia = models.ForeignKey(Tecnologia, null=True, on_delete=models.SET_NULL, related_name='tecnologias')
     def __str__(self):
         return self.id_desarrollador.nombre+ " - "+self.id_tecnologia.nombre
-
-
