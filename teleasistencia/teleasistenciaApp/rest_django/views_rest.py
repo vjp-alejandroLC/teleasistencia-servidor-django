@@ -53,30 +53,34 @@ class ProfileViewSet(viewsets.ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         user = User.objects.get(pk=kwargs["pk"])
+
         if request.data.get("email") is not None:
             user.email = request.data.get("email")
         if request.data.get("password") is not None:
             # Encriptamos la contraseña
             user.set_password(request.data.get("password"))
-        user.save()
-        # si se modifican Files es decir la imagen
+
+        # Si se modifican FILES es que hay una imagen
         if request.FILES:
-            #obtengo la imagem eue me modifican
+            # Extraer la imagen que han subido
             img = request.FILES["imagen"]
-            image = Imagen_User.objects.filter(user=user).first()
-            #Si ya tenia imagen borro la anterior y la guardo add al usuario
-            if image:
-                if (image.imagen) is not None:
-                    os.remove(image.imagen.path)
-                image.imagen = img
-                image.save()
-            #Si no tenia imagen se la añado al usuario
+
+            # Si el usuario ya tenia otra borro la anterior y la guardo
+            user_image = Imagen_User.objects.filter(user=user).first()
+            if user_image:
+                user_image.imagen = img
+
+            # Si no tenia imagen se la añado al usuario
             else:
-                image = Imagen_User(
+                user_image = Imagen_User(
                     user=user,
                     imagen=img
                 )
-            image.save()
+
+            # Guardar cambios
+            user_image.save()
+
+        user.save()
 
         # Devolvemos el user modificado con su imagen
         user_serializer = self.get_serializer(user, many=False)
@@ -1266,7 +1270,7 @@ class Alarma_Programada_ViewSet(viewsets.ModelViewSet):
             # Si no existe en la BBDD, devolver un error
             if Tipo_Alarma.objects.get(pk=request.data.get("id_tipo_alarma")) is None:
                 return Response("Error: id_tipo_alarma")
-            alarma_prog.id_tipo_alarma = request.data.get("id_tipo_alarma")
+            alarma_prog.id_tipo_alarma = Tipo_Alarma.objects.get(pk=request.data.get("id_tipo_alarma"))
 
         if request.data.get("fecha_registro") is not None:
             # TODO: validar el formato de la fecha
@@ -1387,7 +1391,7 @@ class Persona_Contacto_En_Alarma_ViewSet(viewsets.ModelViewSet):
             return Response("Error: id_alarma")
 
         # Comprobamos que existe la persona de contacto
-        id_persona_contacto = Persona.objects.get(pk=request.data.get("id_persona_contacto"))
+        id_persona_contacto = Relacion_Paciente_Persona.objects.get(pk=request.data.get("id_persona_contacto"))
         if id_persona_contacto is None:
             return Response("Error: id_persona_contacto")
 
@@ -1395,7 +1399,6 @@ class Persona_Contacto_En_Alarma_ViewSet(viewsets.ModelViewSet):
             id_alarma=id_alarma,
             id_persona_contacto=id_persona_contacto,
             fecha_registro=request.data.get("fecha_registro"),
-            acuerdo_alcanzado=request.data.get("acuerdo_alcanzado")
         )
 
         persona_contacto_en_alarma.save()
@@ -1410,7 +1413,7 @@ class Persona_Contacto_En_Alarma_ViewSet(viewsets.ModelViewSet):
             return Response("Error: id_alarma")
 
         # Comprobamos que existe la persona de contacto
-        id_persona_contacto = Persona.objects.get(pk=request.data.get("id_persona_contacto"))
+        id_persona_contacto = Relacion_Paciente_Persona.objects.get(pk=request.data.get("id_persona_contacto"))
         if id_persona_contacto is None:
             return Response("Error: id_persona_contacto")
 
@@ -1419,8 +1422,6 @@ class Persona_Contacto_En_Alarma_ViewSet(viewsets.ModelViewSet):
         persona_contacto_en_alarma.id_persona_contacto = id_persona_contacto
         if request.data.get("fecha_registro") is not None:
             persona_contacto_en_alarma.fecha_registro = request.data.get("fecha_registro")
-        if request.data.get("acuerdo_alcanzado") is not None:
-            persona_contacto_en_alarma.acuerdo_alcanzado = request.data.get("acuerdo_alcanzado")
 
         persona_contacto_en_alarma.save()
 
