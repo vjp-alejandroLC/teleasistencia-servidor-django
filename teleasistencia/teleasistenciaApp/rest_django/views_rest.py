@@ -351,6 +351,19 @@ class Tipo_Alarma_ViewSet(viewsets.ModelViewSet):
 
     # permission_classes = [permissions.IsAdminUser] # Si quieriéramos para todos los registrados: IsAuthenticated]
 
+    # Obtenemos el listado de personas filtrado por los parametros GET
+    def list(self, request, *args, **kwargs):
+        # Hacemos una búsqueda por los valores introducidos por parámetros
+        query = getQueryAnd(request.GET)
+        if query:
+            queryset = self.serializer_class.Meta.model.objects.filter(query)
+        # En el caso de que no hay parámetros y queramos devolver todos los valores
+        else:
+            queryset = self.get_queryset()
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def create(self, request, *args, **kwargs):
         # Comprobamos que el tipo de centro sanitario existe
         clasificacion_alarma = Clasificacion_Alarma.objects.get(pk=request.data.get("id_clasificacion_alarma"))
@@ -1054,8 +1067,6 @@ class Recursos_Comunitarios_En_Alarma_ViewSet(viewsets.ModelViewSet):
         # Creamos recursos_comunitarios_en_alarma
         recursos_comunitarios_en_alarma = Recursos_Comunitarios_En_Alarma(
             fecha_registro=request.data.get("fecha_registro"),
-            persona=request.data.get("persona"),
-            acuerdo_alcanzado=request.data.get("acuerdo_alcanzado"),
             id_alarma=id_alarma,
             id_recurso_comunitario=id_recurso_comunitario
         )
@@ -1081,10 +1092,6 @@ class Recursos_Comunitarios_En_Alarma_ViewSet(viewsets.ModelViewSet):
         recursos_comunitarios_en_alarma = Recursos_Comunitarios_En_Alarma.objects.get(pk=kwargs["pk"])
         if request.data.get("fecha_registro") is not None:
             recursos_comunitarios_en_alarma.fecha_registro = request.data.get("fecha_registro")
-        if request.data.get("persona") is not None:
-            recursos_comunitarios_en_alarma.persona = request.data.get("persona")
-        if request.data.get("acuerdo_alcanzado") is not None:
-            recursos_comunitarios_en_alarma.acuerdo_alcanzado = request.data.get("acuerdo_alcanzado")
         recursos_comunitarios_en_alarma.id_alarma = id_alarma
         recursos_comunitarios_en_alarma.id_recurso_comunitario = id_recurso_comunitario
 
