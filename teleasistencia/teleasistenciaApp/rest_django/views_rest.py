@@ -135,7 +135,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save()
 
         # El usuario nuevo se crea asociado a la misma base de datos que el que lo crea
-        database_user =Database_User.objects.get(user=request.user)
+        database_user = Database_User.objects.get(user=request.user)
         database_user_new = Database_User(
             user=user,
             database=database_user.database
@@ -153,6 +153,9 @@ class UserViewSet(viewsets.ModelViewSet):
             image.save()
         # Devolvemos el user creado
         user_serializer = self.get_serializer(user, many=False)
+
+        # MULTIDATABASE: Para las multibase de datos creamos el usuario en la nueva base e datos
+        user.save(using=database_user.database.nameDescritive)
         return Response(user_serializer.data)
 
     def update(self, request, *args, **kwargs):
@@ -206,6 +209,13 @@ class UserViewSet(viewsets.ModelViewSet):
         except:
             info("Error propio")
         user.delete()
+
+
+        # MULTIDATABASE: Para las multibase de datos creamos el usuario en la nueva base e datos
+        database_user = Database_User.objects.get(user=request.user)
+        user = User.objects.using(database_user.database.nameDescritive).get(pk=kwargs["pk"])
+        user.delete()
+
         return Response('borrado')
 
 
@@ -237,7 +247,6 @@ class Clasificacion_Recurso_Comunitario_ViewSet(viewsets.ModelViewSet):
     serializer_class = Clasificacion_Recurso_Comunitario_Serializer
     # Habría que descomentar la siguiente línea para permitir las acciones sólo a los usuarios autenticados (Authorization en la petición POST)
     # permission_classes = [permissions.IsAuthenticated] # Si quieriéramos para todos los registrados: IsAuthenticated]
-    permission_classes = [IsTeacherMember]
 
 
 class Tipo_Recurso_Comunitario_ViewSet(viewsets.ModelViewSet):
@@ -321,20 +330,26 @@ class Recurso_Comunitario_ViewSet(viewsets.ModelViewSet):
             (pk=request.data.get("id_tipos_recurso_comunitario"))
         if tipos_recurso_comunitario is None:
             return Response("Error: tipos_recurso_comunitario")
+        recurso_comunitario = Recurso_Comunitario.objects.get(pk=kwargs["pk"])
 
         # Obtenemos los datos de dirección y los almacenamos
-        direccion_serializer = Direccion_Serializer(data=request.data.get("id_direccion"))
-        if direccion_serializer.is_valid():
-            direccion = direccion_serializer.save()
-        else:
+        if recurso_comunitario.id_direccion is None:
             return Response("Error: direccion")
+        else:
+            # Mejor forma de actualizar un objeto
+            direccion_actualizada = Direccion_Serializer(recurso_comunitario.id_direccion, data = request.data.get("id_direccion"), partial=True)
+            if direccion_actualizada.is_valid():
+                direccion = direccion_actualizada.save()
+            else:
+                return Response("Error: direccion")
+
+        #else:
+        #    direccion.id = recurso_comunitario.id_direccion.id
 
         # Modificamos el centro sanitario con el tipo de centro y la dirección
-        recurso_comunitario = Recurso_Comunitario.objects.get(pk=kwargs["pk"])
         recurso_comunitario.nombre = request.data.get("nombre")
         recurso_comunitario.telefono = request.data.get("telefono")
         recurso_comunitario.id_tipos_recurso_comunitario = tipos_recurso_comunitario
-        recurso_comunitario.id_direccion = direccion
 
         recurso_comunitario.save()
         # Devolvemos los datos
@@ -412,7 +427,6 @@ class Clasificacion_Alarma_ViewSet(viewsets.ModelViewSet):
     """
     queryset = Clasificacion_Alarma.objects.all()
     serializer_class = Clasificacion_Alarma_Serializer
-    permission_classes = [IsTeacherMember]
     # permission_classes = [permissions.IsAdminUser] # Si quieriéramos para todos los registrados: IsAuthenticated]
 
 
