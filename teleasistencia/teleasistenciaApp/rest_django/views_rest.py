@@ -14,6 +14,8 @@ from datetime import datetime
 
 from django.contrib.auth.models import User, Group, Permission
 from rest_framework import permissions
+from rest_framework.permissions import IsAuthenticated
+
 from rest_framework import viewsets
 from rest_framework import status
 # Serializadores generales
@@ -252,6 +254,14 @@ class Clasificacion_Recurso_Comunitario_ViewSet(viewsets.ModelViewSet):
     """
     queryset = Clasificacion_Recurso_Comunitario.objects.all()
     serializer_class = Clasificacion_Recurso_Comunitario_Serializer
+
+    # Permitimos consultar si está autenticado pero sólo borrar/crear/actualizar si es profesor
+    def get_permissions(self):
+        if self.action == 'list':
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsTeacherMember]
+        return [permission() for permission in permission_classes]
     # Habría que descomentar la siguiente línea para permitir las acciones sólo a los usuarios autenticados (Authorization en la petición POST)
     # permission_classes = [permissions.IsAuthenticated] # Si quieriéramos para todos los registrados: IsAuthenticated]
 
@@ -264,7 +274,14 @@ class Tipo_Recurso_Comunitario_ViewSet(viewsets.ModelViewSet):
     serializer_class = Tipo_Recurso_Comunitario_Serializer
     # Habría que descomentar la siguiente línea para permitir las acciones sólo a los usuarios autenticados (Authorization en la petición POST)
     # permission_classes = [permissions.IsAuthenticated] # Si quieriéramos para todos los registrados: IsAuthenticated]
-    permission_classes = [IsTeacherMember]
+
+    # Permitimos consultar si está autenticado pero sólo borrar/crear/actualizar si es profesor
+    def get_permissions(self):
+        if self.action == 'list':
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsTeacherMember]
+        return [permission() for permission in permission_classes]
 
     # Obtenemos el listado de personas filtrado por los parametros GET
     def list(self, request, *args, **kwargs):
@@ -369,7 +386,14 @@ class Tipo_Alarma_ViewSet(viewsets.ModelViewSet):
     """
     queryset = Tipo_Alarma.objects.all()
     serializer_class = Tipo_Alarma_Serializer
-    permission_classes = [IsTeacherMember]
+
+    # Permitimos consultar si está autenticado pero sólo borrar/crear/actualizar si es profesor
+    def get_permissions(self):
+        if self.action == 'list':
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsTeacherMember]
+        return [permission() for permission in permission_classes]
 
     # permission_classes = [permissions.IsAdminUser] # Si quieriéramos para todos los registrados: IsAuthenticated]
 
@@ -434,6 +458,14 @@ class Clasificacion_Alarma_ViewSet(viewsets.ModelViewSet):
     """
     queryset = Clasificacion_Alarma.objects.all()
     serializer_class = Clasificacion_Alarma_Serializer
+
+    # Permitimos consultar si está autenticado pero sólo borrar/crear/actualizar si es profesor
+    def get_permissions(self):
+        if self.action == 'list':
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsTeacherMember]
+        return [permission() for permission in permission_classes]
     # permission_classes = [permissions.IsAdminUser] # Si quieriéramos para todos los registrados: IsAuthenticated]
 
 
@@ -773,6 +805,12 @@ class Terminal_ViewSet(viewsets.ModelViewSet):
         else:
             id_tipo_vivienda = None
 
+        # Comprobamos que existe id_Tipo_situacion
+        if request.data.get("id_tipo_situacion"):
+            id_tipo_situacion = Tipo_Situacion.objects.get(pk=request.data.get("id_tipo_situacion"))
+        else:
+            id_tipo_situacion = None
+
         # Comprobamos que existe el id_titular
         if request.data.get("id_titular"):
             id_titular = Paciente.objects.get(pk=request.data.get("id_titular"))
@@ -783,6 +821,8 @@ class Terminal_ViewSet(viewsets.ModelViewSet):
             numero_terminal=request.data.get("numero_terminal"),
             modo_acceso_vivienda=request.data.get("modo_acceso_vivienda"),
             barreras_arquitectonicas=request.data.get("barreras_arquitectonicas"),
+            fecha_tipo_situacion=request.data.get("fecha_tipo_situacion"),
+            id_tipo_situacion=id_tipo_situacion,
             id_tipo_vivienda=id_tipo_vivienda,
             id_titular=id_titular
         )
@@ -793,98 +833,46 @@ class Terminal_ViewSet(viewsets.ModelViewSet):
         return Response(terminal_serializer.data)
 
     def update(self, request, *args, **kwargs):
-        # Comprobamos que existe id_tipo_vivienda
-        id_tipo_vivienda = Tipo_Vivienda.objects.get(pk=request.data.get("id_tipo_vivienda"))
-        if id_tipo_vivienda is None:
-            return Response("Error: id_tipo_vivienda",405)
-
-        # Comprobamos que existe el id_titular
-        id_titular = Paciente.objects.get(pk=request.data.get("id_titular"))
-        if id_titular is None:
-            return Response("Error: id_titular",405)
-
         terminal = Terminal.objects.get(pk=kwargs["pk"])
-        terminal.id_tipo_vivienda = id_tipo_vivienda
-        terminal.id_titular = id_titular
+        # Comprobamos que existe id_tipo_vivienda
+        if request.data.get("id_tipo_vivienda"):
+            id_tipo_vivienda = Tipo_Vivienda.objects.get(pk=request.data.get("id_tipo_vivienda"))
+            if id_tipo_vivienda is None:
+                return Response("Error: id_tipo_vivienda",405)
+            else:
+                terminal.id_tipo_vivienda = id_tipo_vivienda
+
+        if request.data.get("id_tipo_situacion"):
+            id_tipo_situacion = Tipo_Situacion.objects.get(pk=request.data.get("id_tipo_situacion"))
+            if id_tipo_situacion is None:
+                return Response("Error: id_tipo_situacion",405)
+            else:
+                terminal.id_tipo_situacion = id_tipo_situacion
+        # Comprobamos que existe el id_titular
+        if request.data.get("id_titular"):
+            id_titular = Paciente.objects.get(pk=request.data.get("id_titular"))
+            if id_titular is None:
+                return Response("Error: id_titular",405)
+            else:
+                terminal.id_titular = id_titular
+
         if request.data.get("numero_terminal") is not None:
             terminal.numero_terminal = request.data.get("numero_terminal")
         if request.data.get("modo_acceso_vivienda") is not None:
             terminal.modo_acceso_vivienda = request.data.get("modo_acceso_vivienda")
         if request.data.get("barreras_arquitectonicas") is not None:
             terminal.barreras_arquitectonicas = request.data.get("barreras_arquitectonicas")
-
+        if request.data.get("modelo_terminal") is not None:
+            terminal.modelo_terminal=request.data.get("modelo_terminal")
+        if request.data.get("fecha_tipo_situacion") is not None:
+            terminal.fecha_tipo_situacion=request.data.get("fecha_tipo_situacion")
+        else:
+            id_tipo_situacion = None
         terminal.save()
 
         # Devolvemos el terminal modificado
         terminal_serializer = Terminal_Serializer(terminal)
         return Response(terminal_serializer.data)
-
-
-class Historico_Tipo_Situacion_ViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint para las empresas
-    """
-    queryset = Historico_Tipo_Situacion.objects.all()
-    serializer_class = Historico_Tipo_Situación_Serializer
-    # permission_classes = [permissions.IsAdminUser] # Si quisieramos para todos los registrados: IsAuthenticated]
-
-    def list(self, request, *args, **kwargs):
-
-        queryset = self.filter_queryset(self.get_queryset())
-        # Hacemos una búsqueda por los valores introducidos por parámetros
-
-        query = getQueryAnd(request.GET)
-        if query:
-            queryset = Historico_Tipo_Situacion.objects.filter(query)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
-
-    def create(self, request, *args, **kwargs):
-        # Comprobamos que el tipo situacion existe
-        id_tipo_situacion = Tipo_Situacion.objects.get(pk=request.data.get("id_tipo_situacion"))
-        if id_tipo_situacion is None:
-            return Response("Error: id_tipo_situacion",405)
-
-        # Comprobamos que el terminal existe
-        id_terminal = Terminal.objects.get(pk=request.data.get("id_terminal"))
-        if id_terminal is None:
-            return Response("Error: id_terminal",405)
-
-        # Creamos el historico_tipo_situacion
-        historico_tipo_situacion = Historico_Tipo_Situacion(
-            fecha=request.data.get("fecha"),
-            id_tipo_situacion=id_tipo_situacion,
-            id_terminal=id_terminal
-        )
-
-        historico_tipo_situacion.save()
-        # Devolvemos el historico_tipo_situación creado
-        historico_tipo_situacion_serializer = Historico_Tipo_Situación_Serializer(historico_tipo_situacion)
-        return Response(historico_tipo_situacion_serializer.data)
-
-    def update(self, request, *args, **kwargs):
-        # Comprobamos que el tipo situacion existe
-        id_tipo_situacion = Tipo_Situacion.objects.get(pk=request.data.get("id_tipo_situacion"))
-        if id_tipo_situacion is None:
-            return Response("Error: id_tipo_situacion",405)
-
-        # Comprobamos que el terminal existe
-        id_terminal = Terminal.objects.get(pk=request.data.get("id_terminal"))
-        if id_terminal is None:
-            return Response("Error: id_terminal",405)
-
-        # Modificamos el historico_tipo_situacion
-        historico_tipo_situacion = Historico_Tipo_Situacion.objects.get(pk=kwargs["pk"])
-        historico_tipo_situacion.id_tipo_situacion = id_tipo_situacion
-        historico_tipo_situacion.id_terminal = id_terminal
-        historico_tipo_situacion.fecha = request.data.get("fecha")
-
-        historico_tipo_situacion.save()
-
-        historico_tipo_situacion_serializer = Historico_Tipo_Situación_Serializer(historico_tipo_situacion)
-        return Response(historico_tipo_situacion_serializer.data)
-
-
 
 class Tipo_Situacion_ViewSet(viewsets.ModelViewSet):
     """
@@ -892,7 +880,14 @@ class Tipo_Situacion_ViewSet(viewsets.ModelViewSet):
     """
     queryset = Tipo_Situacion.objects.all()
     serializer_class = Tipo_Situacion_Serializer
-    permission_classes = [IsTeacherMember]
+
+    # Permitimos consultar si está autenticado pero sólo borrar/crear/actualizar si es profesor
+    def get_permissions(self):
+        if self.action == 'list':
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsTeacherMember]
+        return [permission() for permission in permission_classes]
     # permission_classes = [permissions.IsAdminUser] # Si quisieramos para todos los registrados: IsAuthenticated]
 
 
@@ -902,7 +897,14 @@ class Tipo_Vivienda_ViewSet(viewsets.ModelViewSet):
     """
     queryset = Tipo_Vivienda.objects.all()
     serializer_class = Tipo_Vivienda_Serializer
-    permission_classes = [IsTeacherMember]
+
+    # Permitimos consultar si está autenticado pero sólo borrar/crear/actualizar si es profesor
+    def get_permissions(self):
+        if self.action == 'list':
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsTeacherMember]
+        return [permission() for permission in permission_classes]
     # permission_classes = [permissions.IsAdminUser] # Si quisieramos para todos los registrados: IsAuthenticated]
 
 
@@ -1043,6 +1045,18 @@ class Paciente_ViewSet(viewsets.ModelViewSet):
         paciente_serializer = Paciente_Serializer(paciente)
         return Response(paciente_serializer.data)
 
+    def destroy(self, request, *args, **kwargs):
+        #Conseguimos el parametro de la URL
+        paciente = Paciente.objects.get(pk=kwargs["pk"])
+        terminal = Terminal.objects.get(pk=paciente.id_terminal.id)
+        persona = Persona.objects.get(pk=paciente.id_persona.id)
+        if persona is not None:
+            persona.delete()
+        if terminal is not None:
+            terminal.delete()
+        paciente.delete()
+        return Response("")
+
 
 class Tipo_Modalidad_Paciente_ViewSet(viewsets.ModelViewSet):
     """
@@ -1050,7 +1064,14 @@ class Tipo_Modalidad_Paciente_ViewSet(viewsets.ModelViewSet):
     """
     queryset = Tipo_Modalidad_Paciente.objects.all()
     serializer_class = Tipo_Modalidad_Paciente_Serializer
-    permission_classes = [IsTeacherMember]
+
+    # Permitimos consultar si está autenticado pero sólo borrar/crear/actualizar si es profesor
+    def get_permissions(self):
+        if self.action == 'list':
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsTeacherMember]
+        return [permission() for permission in permission_classes]
     # permission_classes = [permissions.IsAdminUser] # Si quisieramos para todos los registrados: IsAuthenticated]
 
 
