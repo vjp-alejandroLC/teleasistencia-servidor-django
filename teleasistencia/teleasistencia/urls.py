@@ -44,6 +44,7 @@ router = routers.DefaultRouter(trailing_slash=False)
 router.register(r'users', views_rest.UserViewSet)
 router.register(r'groups', views_rest.GroupViewSet)
 router.register(r'permission', views_rest.PermissionViewSet)
+router.register(r'databases', views_rest.DatabaseViewSet)
 router.register(r'clasificacion_recurso_comunitario', views_rest.Clasificacion_Recurso_Comunitario_ViewSet)
 router.register(r'tipo_recurso_comunitario', views_rest.Tipo_Recurso_Comunitario_ViewSet)
 router.register(r'recurso_comunitario', views_rest.Recurso_Comunitario_ViewSet)
@@ -70,6 +71,7 @@ router.register(r'persona_contacto_en_alarma', views_rest.Persona_Contacto_En_Al
 router.register(r'gestion_base_datos', views_rest.Gestion_Base_Datos_ViewSet)
 router.register(r'profile', views_rest.ProfileViewSet)
 router.register(r'desarrollador_tecnologia', views_rest.DesarrolladorTecnologiaViewSet)
+router.register(r'seguimiento_teleoperador', views_rest.SeguimientoTeleoperador)
 
 
 urlpatterns = [
