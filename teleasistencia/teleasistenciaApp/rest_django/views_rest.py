@@ -22,9 +22,8 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from django.utils.connection import ConnectionDoesNotExist
+from .utils import getQueryAnd, partial_update_generico, normalizar_booleano
 import json
-
-from .utils import getQueryAnd, partial_update_generico
 
 # Modelos propios
 from ..models import *
@@ -52,7 +51,7 @@ class IsAdminMember(permissions.BasePermission):
 class IsTeacherMember(permissions.BasePermission):
     def has_permission(self, request, view):
         # Si el usuario tiene el grupo tiene el permiso
-        return request.user.groups.filter(name="profesor").exists()
+        return request.user.groups.filter(name='profesor').exists()
 
 
 # Creamos la vista Profile que  modificara los datos y retornara la informacion del usuario activo en la aplicación
@@ -97,7 +96,7 @@ class ProfileViewSet(viewsets.ModelViewSet):
                 user_image.save()
 
             # Si el usuario es un administrador permitirle cambiar su BBDD seleccionada.
-            if request.user.has_perms([IsAdminMember]) and request.data.get("id_database") is not None:
+            if IsAdminMember.has_permission(self, request, self) and request.data.get("id_database") is not None:
                 db_user = Database_User.objects.get(user=user)
                 new_db = Database.objects.get(pk=request.data.get("id_database"))
                 # Si se ha hecho un cambio de base de datos
@@ -129,7 +128,7 @@ class UserViewSet(viewsets.ModelViewSet):
     """
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
-    permission_classes = [IsTeacherMember]
+    permission_classes = [IsAdminMember | IsTeacherMember]
     # permission_classes = [permissions.IsAdminUser]
 
     # Obtenemos el listado de personas filtrado por los parametros GET
@@ -137,8 +136,8 @@ class UserViewSet(viewsets.ModelViewSet):
         # Hacemos una búsqueda por los valores introducidos por parámetros
         query = getQueryAnd(request.GET)
 
-        database_user =Database_User.objects.get(user=request.user)
-        database_user_selected =Database_User.objects.filter(database=database_user.database)
+        database_user = Database_User.objects.get(user=request.user)
+        database_user_selected = Database_User.objects.filter(database=database_user.database)
         if query:
             queryset = User.objects.filter(id__in = [database_u.user.id for database_u in database_user_selected]).filter(query)
         # En el caso de que no hay parámetros y queramos devolver todos los valores
@@ -151,13 +150,16 @@ class UserViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         # Comprobamos que existe el groups
         id_groups = Group.objects.get(pk=request.data.get("groups"))
+        password = request.data.get("password")
 
         if id_groups is None:
             return Response("Error: Groups",405)
 
+        if password is None:
+            return Response("Error: Falta contraseña", 405)
+
         if User.objects.filter(username=request.data.get("username")).exists():
             return Response("Error: El usuario ya existe",405)
-
 
         user = User(
             username=request.data.get("username"),
@@ -166,9 +168,8 @@ class UserViewSet(viewsets.ModelViewSet):
             email=request.data.get("email"),
         )
 
-
         # Encriptamos la contraseña
-        user.set_password(request.data.get("password"))
+        user.set_password(password)
         user.save()
 
         # El usuario nuevo se crea asociado a la misma base de datos que el que lo crea
@@ -215,6 +216,8 @@ class UserViewSet(viewsets.ModelViewSet):
             user.first_name = request.data.get("first_name")
         if request.data.get("last_name") is not None:
             user.last_name = request.data.get("last_name")
+        if request.data.get("is_active") is not None:
+            user.is_active = normalizar_booleano(request.data.get("is_active"))
         user.save()
         if request.FILES:
             # Extraer la imagen que han subido
@@ -1697,7 +1700,7 @@ class SeguimientoTeleoperador(viewsets.ModelViewSet):
         usuario_json["id"] = user_search.id
         usuario_json["first_name"] = user_search.first_name
         usuario_json["second_name"] = user_search.last_name
-        usuario_json["_total"] = alarmas.count()
+        usuario_json["alarmas_total"] = alarmas.count()
         usuario_json["agendas_total"] = historico_agenda_llamadas.count()
         # Serializamos as agendas/alarmas y convertimos su salida a JSON
         usuario_json["agendas"] = json.loads(json.dumps(Historico_Agenda_Llamadas_Serializer(historico_agenda_llamadas, many=True).data))
